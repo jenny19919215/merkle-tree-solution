@@ -6,7 +6,7 @@ import org.apache.logging.log4j.Logger;
 import java.nio.charset.StandardCharsets;
 import java.security.InvalidParameterException;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.*;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Function;
 
@@ -21,6 +21,7 @@ public class MerkleTree {
     private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
 
     private List<MerkleNode> conflictNodes = new ArrayList<>();
+    private final ExecutorService executors = Executors.newFixedThreadPool(2);
 
     public MerkleTree(List<String> data) {
         if (data == null || data.isEmpty()) throw new InvalidParameterException("Data list not expected to be empty!");
@@ -113,13 +114,11 @@ public class MerkleTree {
         return leaves;
     }
 
-    private MerkleNode findLeaf(String data) {
+    public MerkleNode findLeaf(String data) {
         return this.leaves.stream()
                 .filter((leaf) -> Objects.equals(leaf.getValue(), data))
                 .findFirst()
                 .orElse(null);
-
-
         // return findLeaf(root, data);
     }
 
@@ -151,13 +150,55 @@ public class MerkleTree {
         }
     }*/
 
-    public void updateLeaves(List<MerkleNode> modifiedLeaves) {
-        modifiedLeaves.sort(Comparator.comparingInt(MerkleNode::getIndex));
-        this.conflictNodes = findConflictNodes(modifiedLeaves);
-        Thread thread = new Thread(() -> {
+    public void updateLeaves(List<MerkleNode> modifiedLeaves) throws InterruptedException {
+        logger.info("start to update leaves {}",modifiedLeaves);
+        ArrayList<MerkleNode> leaves = new ArrayList<>();
+        for(MerkleNode leaf: modifiedLeaves){
+            if(this.leaves.contains(leaf)){
+                leaves.add(leaf);
+            }
+        }
+
+        if(leaves.isEmpty()){
+            logger.info("no leaves to update exist in current merkle tree");
+            return;
+        }
+
+        leaves.sort(Comparator.comparingInt(MerkleNode::getIndex));
+        this.conflictNodes = findConflictNodes(leaves);
+
+        for (int i = 0; i < leaves.size(); i++) {
+           // int startIndex = i * batchSize;
+           // int endIndex = Math.min(startIndex + batchSize, totalItems);
+          //  List<MerkleNode> batchData = leaves.subList(startIndex, endIndex);
+
+        /*    int finalI1 = i;
+            executors.submit(() -> {
+                updateLeaf1(leaves.get(finalI1));
+            });*/
+            int finalI = i;
+            CompletableFuture.runAsync(() -> {
+                logger.info("finali = {}", finalI);
+                updateLeaf1(leaves.get(finalI));
+            }, executors);
+           // Process the batch of data
+        }
+
+        executors.shutdown();
+        try {
+            if (!executors.awaitTermination(5, TimeUnit.SECONDS)) {
+                executors.shutdownNow();
+            }
+        } catch (InterruptedException e) {
+            executors.shutdownNow();
+        }
+        // Wait for all tasks to complete or timeout after 5 seconds
+      //  executors.awaitTermination(5, TimeUnit.SECONDS);
+
+       /* Thread thread = new Thread(() -> {
 
             //    modifiedLeaves.get(0).updateHash();
-            updateTreeByNodeConcurrent1(modifiedLeaves.get(0));
+            updateLeaf1(leaves.get(0));
 
             System.out.println("Thread 1  is running");
         });
@@ -165,22 +206,28 @@ public class MerkleTree {
         Thread thread2 = new Thread(() -> {
 
             //  modifiedLeaves.get(1).updateHash();
-            updateTreeByNodeConcurrent1(modifiedLeaves.get(1));
+            updateLeaf1(leaves.get(1));
 
             System.out.println("Thread 2  is running");
         });
 
         thread.start();
-        thread2.start();
+        thread2.start();*/
        /* for(MerkleNode leaf: modifiedLeaves){
             System.out.println("enter for 1");
             leaf.updateHash();
             updateNodeConcurrent1(leaf);
         }*/
 
-        conflictNodes.clear();
+
         System.out.println("Leaf A D updated to  a d, and root hash updated to " + HexFormat.of().formatHex(getRoot().getHash()));
         //setallnode isvisited to false
+    }
+
+
+    public void resetAfterTreeUpdate(){
+        conflictNodes.clear();
+        executors.isShutdown();
     }
 
     private List<MerkleNode> findConflictNodes(List<MerkleNode> leaves) {
@@ -224,8 +271,7 @@ public class MerkleTree {
         }
     }
 
-    private void updateTreeByNodeConcurrent1(MerkleNode node) {
-        //TODO
+    public void updateLeaf1(MerkleNode node) {
         node.updateHash();
         if (node.getParent() != null) {
             MerkleNode parent = node.getParent();
@@ -234,22 +280,24 @@ public class MerkleTree {
                 logger.info("2 calcul parent hash {}", HexFormat.of().formatHex(parent.getHash()));
                 try {
                     parent.lock.writeLock().lock();
+                    logger.info("get lockkkkkkkkkkkkkkkkkk");
                     if (!parent.isVisited()) {
                         logger.info("2.5 calcul parent hash {}", HexFormat.of().formatHex(parent.getHash()));
                         parent.setVisited(true);
                         Thread.currentThread().interrupt();
                     } else {
                         logger.info("3 calcul parent hash {}", HexFormat.of().formatHex(parent.getHash()));
-                        parent.updateHash();
-                        updateTreeByNodeConcurrent1(parent);
+                       // parent.updateHash();
+                        updateLeaf1(parent);
                     }
                 } finally {
                     parent.lock.writeLock().unlock();
+                    logger.info("release lockkkkkkkkkkkkkkkkkkk");
                 }
 
             } else {
-                parent.updateHash();
-                updateTreeByNodeConcurrent1(parent);
+              //  parent.updateHash();
+                updateLeaf1(parent);
                 logger.info("4 calcul parent hash {}", HexFormat.of().formatHex(parent.getHash()));
             }
         }
@@ -307,7 +355,7 @@ public class MerkleTree {
         Thread thread2 = new Thread(() -> {
 
             //  modifiedLeaves.get(1).updateHash();
-            tree.updateLeaves(list);
+      //      tree.updateLeaves(list);
 
 
         });

@@ -7,21 +7,15 @@ import java.nio.charset.StandardCharsets;
 import java.security.InvalidParameterException;
 import java.util.*;
 import java.util.concurrent.*;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Function;
 
 public class MerkleTree {
 
     private static final Function<String, byte[]> stringToByte = (a) -> a.getBytes(StandardCharsets.UTF_8);
     private static final Logger logger = LogManager.getLogger(MerkleTree.class);
-
     private final MerkleNode root;
-
     private List<MerkleNode> leaves;
-    private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
-
     private List<MerkleNode> conflictNodes = new ArrayList<>();
-    private final ExecutorService executors = Executors.newFixedThreadPool(2);
 
     public MerkleTree(List<String> data) {
         if (data == null || data.isEmpty()) throw new InvalidParameterException("Data list not expected to be empty!");
@@ -99,17 +93,6 @@ public class MerkleTree {
 
     }
 
-    public void updateSingleLeaf(String data, String newData) {
-        MerkleNode leaf = findLeaf(data);
-        if (leaf == null) {
-            logger.warn("update leaf failed, {} not found in the merkle tree", data);
-            return; // Data not found in the tree
-        }
-        leaf.update(newData);
-        // updateParents(leaf.getParent());
-        // updateNodeConcurrent(leaf);
-
-    }
     public List<MerkleNode> getLeaves() {
         return leaves;
     }
@@ -119,38 +102,9 @@ public class MerkleTree {
                 .filter((leaf) -> Objects.equals(leaf.getValue(), data))
                 .findFirst()
                 .orElse(null);
-        // return findLeaf(root, data);
     }
 
-    private MerkleNode findLeaf(MerkleNode node, String data) {
-        if (node.isLeaf()) {
-            if (node.getValue().equals(data)) {
-                return node;
-            }
-            return null;
-        }
-        MerkleNode leftResult = findLeaf(node.getLeft(), data);
-        if (leftResult != null) {
-            return leftResult;
-        }
-        return findLeaf(node.getRight(), data);
-    }
-
-    private void updateParents(MerkleNode node) {
-        if (node == null) {
-            return;
-        }
-        node.updateHashrecur();
-        updateParents(node.getParent());
-    }
-    /*public void updateTree(List<Pa> ) {
-        this.conflictNodes = findConflictNodes(leaves);
-        for(MerkleNode leaf: leaves){
-            updateNodeConcurrent(leaf);
-        }
-    }*/
-
-    public void updateLeaves(List<MerkleNode> modifiedLeaves) throws InterruptedException {
+    public void updateLeaves(List<MerkleNode> modifiedLeaves, ExecutorService executors) {
         logger.info("start to update leaves {}",modifiedLeaves);
         ArrayList<MerkleNode> leaves = new ArrayList<>();
         for(MerkleNode leaf: modifiedLeaves){
@@ -163,71 +117,44 @@ public class MerkleTree {
             logger.info("no leaves to update exist in current merkle tree");
             return;
         }
+        //update leaves by synchro
+        if(executors == null){
+            for(MerkleNode leaf: leaves){
+                updateNode(leaf);
+            }
+            return;
+        }
 
         leaves.sort(Comparator.comparingInt(MerkleNode::getIndex));
         this.conflictNodes = findConflictNodes(leaves);
 
         for (int i = 0; i < leaves.size(); i++) {
-           // int startIndex = i * batchSize;
-           // int endIndex = Math.min(startIndex + batchSize, totalItems);
-          //  List<MerkleNode> batchData = leaves.subList(startIndex, endIndex);
-
-        /*    int finalI1 = i;
-            executors.submit(() -> {
-                updateLeaf1(leaves.get(finalI1));
-            });*/
             int finalI = i;
-            CompletableFuture.runAsync(() -> {
+            CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
                 logger.info("finali = {}", finalI);
-                updateLeaf1(leaves.get(finalI));
+                updateNode(leaves.get(finalI));
             }, executors);
            // Process the batch of data
         }
-
         executors.shutdown();
-        try {
-            if (!executors.awaitTermination(5, TimeUnit.SECONDS)) {
-                executors.shutdownNow();
-            }
-        } catch (InterruptedException e) {
-            executors.shutdownNow();
+        while (!executors.isTerminated()) { // 如果没有执行完就一直循环
         }
-        // Wait for all tasks to complete or timeout after 5 seconds
-      //  executors.awaitTermination(5, TimeUnit.SECONDS);
-
-       /* Thread thread = new Thread(() -> {
-
-            //    modifiedLeaves.get(0).updateHash();
-            updateLeaf1(leaves.get(0));
-
-            System.out.println("Thread 1  is running");
-        });
-
-        Thread thread2 = new Thread(() -> {
-
-            //  modifiedLeaves.get(1).updateHash();
-            updateLeaf1(leaves.get(1));
-
-            System.out.println("Thread 2  is running");
-        });
-
-        thread.start();
-        thread2.start();*/
-       /* for(MerkleNode leaf: modifiedLeaves){
-            System.out.println("enter for 1");
-            leaf.updateHash();
-            updateNodeConcurrent1(leaf);
+        /*try {
+            logger.info("shutdown 1.5");
+           *//* if (!executors.awaitTermination(10, TimeUnit.SECONDS)) {
+                logger.info("shutdown 2");
+                executors.shutdownNow();
+            }*//*
+        } catch (InterruptedException e) {
+            logger.info("shutdown 3");
+            executors.shutdownNow();
         }*/
-
-
-        System.out.println("Leaf A D updated to  a d, and root hash updated to " + HexFormat.of().formatHex(getRoot().getHash()));
-        //setallnode isvisited to false
     }
 
 
     public void resetAfterTreeUpdate(){
         conflictNodes.clear();
-        executors.isShutdown();
+     //   executors.isShutdown();
     }
 
     private List<MerkleNode> findConflictNodes(List<MerkleNode> leaves) {
@@ -253,64 +180,41 @@ public class MerkleTree {
         return root;
     }
 
-    private void updateNodeConcurrent(MerkleNode node) {
-        if (node == null) {
-            return;
-        }
-        MerkleNode parent = node.getParent();
-        if (conflictNodes.contains(node)) {
-            node.lock.writeLock().lock();
-            if (!node.isVisited()) {
-                node.setVisited(true);
-                return;
-            }
-            node.updateHashrecur();
-            node.lock.writeLock().unlock();
-        } else {
-            node.updateHashrecur();
-        }
-    }
-
-    public void updateLeaf1(MerkleNode node) {
+    private void updateNode(MerkleNode node) {
+        //update leaf hash
         node.updateHash();
-        if (node.getParent() != null) {
-            MerkleNode parent = node.getParent();
-            logger.info("1 parent hash {}", HexFormat.of().formatHex(parent.getHash()));
-            if (conflictNodes.contains(parent)) {
-                logger.info("2 calcul parent hash {}", HexFormat.of().formatHex(parent.getHash()));
+        //update tree
+        while (node.getParent() != null) {
+            node = node.getParent();
+            logger.info("1 parent hash {}", HexFormat.of().formatHex(node.getHash()));
+            if (conflictNodes.contains(node)) {
+                logger.info("2 calcul parent hash {}", HexFormat.of().formatHex(node.getHash()));
                 try {
-                    parent.lock.writeLock().lock();
+                    node.lock.writeLock().lock();
                     logger.info("get lockkkkkkkkkkkkkkkkkk");
-                    if (!parent.isVisited()) {
-                        logger.info("2.5 calcul parent hash {}", HexFormat.of().formatHex(parent.getHash()));
-                        parent.setVisited(true);
-                        Thread.currentThread().interrupt();
+                    if (!node.isVisited()) {
+                        logger.info("2.5 set visited {}", HexFormat.of().formatHex(node.getHash()));
+                        node.setVisited(true);
+                       break;
                     } else {
-                        logger.info("3 calcul parent hash {}", HexFormat.of().formatHex(parent.getHash()));
-                       // parent.updateHash();
-                        updateLeaf1(parent);
+                        logger.info("3 calcul parent hash {}", HexFormat.of().formatHex(node.getHash()));
+                        node.updateHash();
                     }
                 } finally {
-                    parent.lock.writeLock().unlock();
+                    node.lock.writeLock().unlock();
                     logger.info("release lockkkkkkkkkkkkkkkkkkk");
                 }
-
             } else {
-              //  parent.updateHash();
-                updateLeaf1(parent);
-                logger.info("4 calcul parent hash {}", HexFormat.of().formatHex(parent.getHash()));
+                node.updateHash();
+                logger.info("4 calcul parent hash {}", HexFormat.of().formatHex(node.getHash()));
             }
         }
         logger.info("exit while");
     }
 
-    public void verifyTree() {
-    }
-
     public MerkleNode getRoot() {
         return root;
     }
-
 
     public static void main(String[] args) throws InterruptedException {
         // Test harness

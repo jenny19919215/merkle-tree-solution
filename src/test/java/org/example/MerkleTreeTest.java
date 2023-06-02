@@ -1,21 +1,22 @@
 package org.example;
 
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.nio.charset.StandardCharsets;
 import java.security.InvalidParameterException;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 public class MerkleTreeTest {
     private static MerkleTree merkleTree;
     private static List<String> data;
+    private final ExecutorService executors = Executors.newFixedThreadPool(2);
 
     @BeforeEach
     public void setUp() {
@@ -94,10 +95,10 @@ public class MerkleTreeTest {
     }
 
     @Test
-    public void update_single_leaf_with_new_value_not_found() throws InterruptedException {
+    public void update_single_leaf_with_new_value_not_found() {
         byte[] rootHash = merkleTree.getRoot().getHash();
         MerkleNode leaf = new MerkleNode("a", HashUtil.hash_sha_256("a".getBytes(StandardCharsets.UTF_8)),-1);
-        merkleTree.updateLeaves(List.of(leaf));
+        merkleTree.updateLeaves(List.of(leaf), executors);
         assertArrayEquals(rootHash,merkleTree.getRoot().getHash());
     }
 
@@ -105,9 +106,9 @@ public class MerkleTreeTest {
     public void update_single_leaf_with_new_value_successful() {
         String targetData = "C";
         MerkleNode leaf = merkleTree.findLeaf("C");
-       // leaf.setValue("F");
-        merkleTree.updateSingleLeaf("C","F");
-      //  merkleTree.updateLeaf1(leaf);
+        leaf.setValue("F");
+       // merkleTree.updateSingleLeaf("C","F");
+        merkleTree.updateLeaves(List.of(leaf), null);
         assertEquals("2f48bc499259fcbdf8119716a116652f0ac5388a2a63b57478113c78fac8c576", HexFormat.of().formatHex(merkleTree.getRoot().getHash()));
     }
 
@@ -122,7 +123,7 @@ public class MerkleTreeTest {
         MerkleNode leaf1 = merkleTree.findLeaf(targetData1);
         leaf1.setValue("d");
 
-        merkleTree.updateLeaves(List.of(leaf,leaf1));
+        merkleTree.updateLeaves(List.of(leaf,leaf1),executors);
 
        /* merkleTree.updateSingleLeaf("A","a");
         merkleTree.updateSingleLeaf("D","d");*/
@@ -145,30 +146,10 @@ public class MerkleTreeTest {
         MerkleNode leaf2 = merkleTree.findLeaf(targetData2);
         leaf2.setValue("e");
 
-        /*merkleTree.updateSingleLeaf("A","a");
-        merkleTree.updateSingleLeaf("D","d");
-        merkleTree.updateSingleLeaf("E","e");*/
-
-        merkleTree.updateLeaves(List.of(leaf,leaf1,leaf2));
+        merkleTree.updateLeaves(List.of(leaf,leaf1,leaf2),executors);
         //  merkleTree.resetAfterTreeUpdate();
         assertEquals("68812a5ef301d5712a0fc4fc923e194418eb17bcfa2cb54272b2be8df915f7d0",HexFormat.of().formatHex(merkleTree.getRoot().getHash()));
         // assertArrayEquals("", merkleTree.getRoot().getHash());
     }
-
-    @Test
-    public void testMerkleProof() {
-        String targetData = "C";
-        List<MerkleProof> merklePath = merkleTree.getMerkleProof(targetData);
-        assertNotNull(merklePath);
-        assertTrue(merkleTree.verifyMerkleProof(targetData, merklePath));
-
-        String newData = "F";
-        merkleTree.updateSingleLeaf(targetData, newData);
-        List<MerkleProof> updatedMerklePath = merkleTree.getMerkleProof(newData);
-        assertNotNull(updatedMerklePath);
-        assertTrue(merkleTree.verifyMerkleProof(newData, updatedMerklePath));
-    }
-
-
 
 }

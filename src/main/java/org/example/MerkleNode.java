@@ -68,28 +68,13 @@ public class MerkleNode {
         }
     }
 
-    private String computeHash(String data) {
-        try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            byte[] hashBytes = digest.digest(data.getBytes(StandardCharsets.UTF_8));
-            StringBuilder hexString = new StringBuilder();
-            for (byte hashByte : hashBytes) {
-                String hex = Integer.toHexString(0xff & hashByte);
-                if (hex.length() == 1) {
-                    hexString.append('0');
-                }
-                hexString.append(hex);
-            }
-            return hexString.toString();
-        } catch (NoSuchAlgorithmException e) {
-            throw new RuntimeException("SHA-256 hash algorithm not found.", e);
-        }
-    }
-
     @Override
     public String toString() {
         return "MerkleNode{"
-                + "value = " + value + " Hash=0x"
+                + "value = " + value
+                + " left hash =" + HexFormat.of().formatHex(left.getHash())
+                + " right hash =" + HexFormat.of().formatHex(right.getHash())
+                + " hash="
                 + HexFormat.of().formatHex(this.hash)
                 + '}';
     }

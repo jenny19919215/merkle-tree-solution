@@ -5,8 +5,6 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
@@ -39,25 +37,9 @@ public class MerkleNode {
         right.setParent(this);
     }
 
-    public void update(String value) {
-        this.value = value;
-        this.updateHashrecur();
-    }
-
     public boolean isLeaf() {
         return left == null && right == null;
 
-    }
-
-    public void updateHashrecur() {
-        if (isLeaf()) {
-            hash = HashUtil.hash_sha_256(value.getBytes(StandardCharsets.UTF_8));
-        } else {
-            hash = HashUtil.combineHash(left.getHash(), right.getHash());
-        }
-        if (parent != null) {
-            parent.updateHashrecur();
-        }
     }
 
     public void updateHash() {
@@ -72,8 +54,8 @@ public class MerkleNode {
     public String toString() {
         return "MerkleNode{"
                 + "value = " + value
-                + " left hash =" + HexFormat.of().formatHex(left.getHash())
-                + " right hash =" + HexFormat.of().formatHex(right.getHash())
+                + " left child hash =" + (left != null ? HexFormat.of().formatHex(left.getHash()) : "null")
+                + " right child hash =" + (right != null ? HexFormat.of().formatHex(right.getHash()) : "null")
                 + " hash="
                 + HexFormat.of().formatHex(this.hash)
                 + '}';

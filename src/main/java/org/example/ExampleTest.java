@@ -3,13 +3,14 @@ package org.example;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import java.util.*;
+import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class ExampleTest {
     private static final Logger logger = LogManager.getLogger(ExampleTest.class);
-    public static void main(String[] args) throws InterruptedException {
+
+    public static void main(String[] args) {
         ExecutorService executors = Executors.newFixedThreadPool(3);
 
         //Build a merkle tree
@@ -17,7 +18,6 @@ public class ExampleTest {
         logger.info("1. Build a merkle tree by data {}", data);
         MerkleTree tree = new MerkleTree(data);
 
-        byte[] originalHash = tree.getRoot().getHash();
         logger.info("original root is {}  \n\n", tree.getRoot());
 
         // Generate and verify Merkle proof
@@ -27,12 +27,12 @@ public class ExampleTest {
 
 
         if (!merklePath.isEmpty()) {
-            logger.info(String.format("Merkle proof for %s : %s", targetData, merklePath));
+            logger.info("Merkle proof for {}: {}", targetData, merklePath);
             logger.info("3. Test if merkle proofs for leave 'C' is valid in this merkle tree.");
             boolean isValid = tree.verifyMerkleProof(targetData, merklePath);
             logger.info("Is Merkle proof valid? {}  \n\n", isValid);
         } else {
-            System.out.println(targetData + " not found in the Merkle tree. \n\n");
+            logger.info(" {} not found in the Merkle tree. \n\n", targetData);
         }
 
         logger.info("4. Update leaf 'C' to 'c' ");
@@ -61,12 +61,6 @@ public class ExampleTest {
         leafE.setValue("e");
 
         tree.updateLeaves(List.of(leafA,leafD,leafE),executors);
-
-        // Update a leaf and verify again
-
-        List<MerkleProof> updatedMerklePath = tree.getMerkleProof("a");
-        logger.info("Is Merkle proof valid for update leaf \"A\" to \"a\"? {}  \n\n", tree.verifyMerkleProof("a", updatedMerklePath));
-
 
     }
 }

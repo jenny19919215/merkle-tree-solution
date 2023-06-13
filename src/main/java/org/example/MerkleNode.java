@@ -54,8 +54,8 @@ public class MerkleNode {
     public String toString() {
         return "MerkleNode{"
                 + "value = " + value
-                + " left child hash =" + (left != null ? HexFormat.of().formatHex(left.getHash()) : "null")
-                + " right child hash =" + (right != null ? HexFormat.of().formatHex(right.getHash()) : "null")
+               /* + " left child hash =" + (left != null ? HexFormat.of().formatHex(left.getHash()) : "null")
+                + " right child hash =" + (right != null ? HexFormat.of().formatHex(right.getHash()) : "null")*/
                 + " hash="
                 + HexFormat.of().formatHex(this.hash)
                 + '}';

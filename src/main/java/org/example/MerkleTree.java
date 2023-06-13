@@ -24,7 +24,7 @@ public class MerkleTree {
     public MerkleTree(List<String> data) {
         if (data == null || data.isEmpty()) throw new InvalidParameterException("Data list not expected to be empty!");
         this.root = buildTree(data);
-        logger.info("new merkle tree root hash is {}", HexFormat.of().formatHex(root.getHash()));
+        logger.info("new merkle tree root is {}", getRoot());
     }
 
     private MerkleNode buildTree(List<String> data) {
@@ -123,34 +123,31 @@ public class MerkleTree {
         try {
             lock.writeLock().lock();
             logger.info("start to update leaves {}", modifiedLeaves);
-            ArrayList<MerkleNode> leaves = new ArrayList<>();
+            ArrayList<MerkleNode> leavesToUpdate = new ArrayList<>();
             for (MerkleNode leaf : modifiedLeaves) {
                 if (this.leaves.contains(leaf)) {
-                    leaves.add(leaf);
+                    leavesToUpdate.add(leaf);
                 }
             }
 
-            if (leaves.isEmpty()) {
+            if (leavesToUpdate.isEmpty()) {
                 logger.info("no leaves to update exist in current merkle tree");
                 return;
             }
             //update leaves by synchro
             if (executors == null) {
-                for (MerkleNode leaf : leaves) {
+                for (MerkleNode leaf : leavesToUpdate) {
                     updateNode(leaf);
                 }
                 return;
             }
 
-            leaves.sort(Comparator.comparingInt(MerkleNode::getIndex));
-            this.conflictNodes = findConflictNodes(leaves);
+            leavesToUpdate.sort(Comparator.comparingInt(MerkleNode::getIndex));
+            this.conflictNodes = findConflictNodes(leavesToUpdate);
 
-            for (int i = 0; i < leaves.size(); i++) {
+            for (int i = 0; i < leavesToUpdate.size(); i++) {
                 final int index = i;
-                CompletableFuture.runAsync(() -> {
-                    logger.info("final i = {}", index);
-                    updateNode(leaves.get(index));
-                }, executors);
+                CompletableFuture.runAsync(() -> updateNode(leavesToUpdate.get(index)), executors);
                 // Process the batch of data
             }
 
@@ -160,6 +157,7 @@ public class MerkleTree {
             resetAfterConcurrentTreeUpdate();
         } finally {
             lock.writeLock().unlock();
+            logger.info("leaves update finish with new root {}", getRoot());
         }
     }
 
@@ -179,17 +177,17 @@ public class MerkleTree {
     }
 
     private List<MerkleNode> findConflictNodes(List<MerkleNode> leaves) {
-        List<MerkleNode> conflictNodes = new ArrayList<>();
+        List<MerkleNode> nodes = new ArrayList<>();
         if (leaves == null || leaves.size() <= 1) {
-            return conflictNodes;
+            return nodes;
         }
 
-        MerkleNode node = leaves.get(0);
-        for (int j = 1; j < leaves.size(); j++) {
-            node = lowestCommonAncestor(root, node, leaves.get(j));
-            conflictNodes.add(node);
+
+        for (int j = 0; j < leaves.size() - 1; j++) {
+            MerkleNode node = lowestCommonAncestor(root, leaves.get(j), leaves.get(j + 1));
+            nodes.add(node);
         }
-        return conflictNodes;
+        return nodes;
     }
 
     private MerkleNode lowestCommonAncestor(MerkleNode root, MerkleNode p, MerkleNode q) {
@@ -208,27 +206,27 @@ public class MerkleTree {
         //update ancestor tree
         while (node.getParent() != null) {
             node = node.getParent();
-            logger.debug("1 parent hash {}", HexFormat.of().formatHex(node.getHash()));
+            logger.debug("get node parent node {}", node);
             if (conflictNodes.contains(node)) {
-                logger.debug("2 node is conflict nodes {}", HexFormat.of().formatHex(node.getHash()));
+                logger.debug("node parent {} is conflict node", node);
                 try {
                     node.lock.writeLock().lock();
-                    logger.debug("get lockkkkkkkkkkkkkkkkkk");
+                    logger.debug("get write lock for node {}", node);
                     if (!node.isVisited()) {
-                        logger.info("2.5 set visited {}", HexFormat.of().formatHex(node.getHash()));
                         node.setVisited(true);
+                        logger.debug("node {} is not visited yet, set flag to true", node);
                         break;
                     } else {
-                        logger.debug("3 node visited = true {}", HexFormat.of().formatHex(node.getHash()));
+                        logger.debug("node {} has been visited, update node hash then", node);
                         node.updateHash();
                     }
                 } finally {
                     node.lock.writeLock().unlock();
-                    logger.debug("release lockkkkkkkkkkkkkkkkkkk");
+                    logger.debug("release write lock for node {}", node);
                 }
             } else {
                 node.updateHash();
-                logger.debug("4 udpate parent hash {}", HexFormat.of().formatHex(node.getHash()));
+                logger.debug("update parent hash {}", node);
             }
         }
     }

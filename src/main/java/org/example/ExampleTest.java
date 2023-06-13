@@ -27,7 +27,7 @@ public class ExampleTest {
 
 
         if (!merklePath.isEmpty()) {
-            logger.info("Merkle proof for {}: {}", targetData, merklePath);
+            logger.info("Merkle proof for {}: {} \n\n", targetData, merklePath);
             logger.info("3. Test if merkle proofs for leave 'C' is valid in this merkle tree.");
             boolean isValid = tree.verifyMerkleProof(targetData, merklePath);
             logger.info("Is Merkle proof valid? {}  \n\n", isValid);
@@ -39,11 +39,16 @@ public class ExampleTest {
         MerkleNode leaf = tree.findLeaf(targetData);
         String newVal = "c";
         leaf.setValue(newVal);
-        tree.updateLeaves(List.of(leaf),null);
+        tree.updateLeaves(List.of(leaf), null);
         List<MerkleProof> proofs = tree.getMerkleProof(newVal);
         logger.info("4.1 Merkle proof for {} : {}", newVal, proofs);
         boolean isValid = tree.verifyMerkleProof(newVal, proofs);
         logger.info("Is Merkle proof valid? {} \n\n", isValid);
+
+        MerkleNode leaf1 = tree.findLeaf("c");
+        String newVal1 = "C";
+        leaf1.setValue(newVal1);
+        tree.updateLeaves(List.of(leaf1), null);
 
 
         logger.info("5. Update leaves concurrently.");

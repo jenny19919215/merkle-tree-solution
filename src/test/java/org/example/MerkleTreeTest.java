@@ -16,7 +16,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class MerkleTreeTest {
     private static MerkleTree merkleTree;
     private static List<String> data;
-    private final ExecutorService executors = Executors.newFixedThreadPool(2);
+    private final ExecutorService executors = Executors.newFixedThreadPool(3);
 
     @BeforeEach
     public void setUp() {
@@ -112,7 +112,7 @@ class MerkleTreeTest {
 
 
     @Test
-    void update_leaves_concurrently_successful() throws InterruptedException {
+    void update_leaves_concurrently_successful() {
         String targetData = "A";
         MerkleNode leaf = merkleTree.findLeaf(targetData);
         leaf.setValue("a");
@@ -127,7 +127,7 @@ class MerkleTreeTest {
     }
 
     @Test
-    void update_leaves_concurrently_successful_2() throws InterruptedException {
+    void update_leaves_concurrently_successful_2() {
         String targetData = "A";
         MerkleNode leaf = merkleTree.findLeaf(targetData);
         leaf.setValue("a");

@@ -28,7 +28,8 @@ Java MerkleTree is located in `src/main/java`
 
 ```
 cd merkle-tree-solution
-mvn clean install
+mvn clean package
+java -jar .\target\merkle-tree-solution-1.0-SNAPSHOT.jar 
 ```
 
 ## Content
@@ -55,4 +56,4 @@ The project has implemented standard operations on Merkle trees:
 
 Calculate conflict nodes for update leaves
 
-![img.png](img.png)
+![img_1.png](img_1.png)

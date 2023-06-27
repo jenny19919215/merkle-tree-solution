@@ -19,13 +19,24 @@ public class MerkleTree {
     private final List<MerkleNode> leaves = new ArrayList<>();
     private List<MerkleNode> conflictNodes = new ArrayList<>();
 
+    private HashFunction hashFunction;
+
     protected final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
 
     public MerkleTree(List<String> data) {
         if (data == null || data.isEmpty()) throw new InvalidParameterException("Data list not expected to be empty!");
         this.root = buildTree(data);
-        logger.info("new merkle tree root is {}", getRoot());
+        logger.info("new merkle tree root is {}", getRootHash());
     }
+
+    public MerkleTree(List<String> data, HashFunction hashFunction) {
+        if (data == null || data.isEmpty()) throw new InvalidParameterException("Data list not expected to be empty!");
+        this.root = buildTree(data);
+        logger.info("new merkle tree root is {}", getRootHash());
+        this.hashFunction = hashFunction;
+
+    }
+
 
     private MerkleNode buildTree(List<String> data) {
         logger.info("build merkle tree by data: {}", data);
@@ -157,7 +168,7 @@ public class MerkleTree {
             resetAfterConcurrentTreeUpdate();
         } finally {
             lock.writeLock().unlock();
-            logger.info("leaves update finish with new root {}", getRoot());
+            logger.info("leaves update finish with new root {}", getRootHash());
         }
     }
 
@@ -231,7 +242,7 @@ public class MerkleTree {
         }
     }
 
-    public MerkleNode getRoot() {
-        return root;
+    public byte[] getRootHash() {
+        return root.getHash();
     }
 }

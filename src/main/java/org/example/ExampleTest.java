@@ -18,7 +18,7 @@ public class ExampleTest {
         logger.info("1. Build a merkle tree by data {}", data);
         MerkleTree tree = new MerkleTree(data);
 
-        logger.info("original root is {}  \n\n", tree.getRoot());
+        logger.info("original root is {}  \n\n", tree.getRootHash());
 
         // Generate and verify Merkle proof
         logger.info("2. Generate merkle proofs for leave 'C'. ");

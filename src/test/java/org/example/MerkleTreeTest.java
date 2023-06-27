@@ -32,20 +32,20 @@ class MerkleTreeTest {
     @Test
     void testRootHashAreSame() {
         MerkleTree merkleTree1 = new MerkleTree(data);
-        assertArrayEquals(merkleTree.getRoot().getHash(), merkleTree1.getRoot().getHash());
+        assertArrayEquals(merkleTree.getRootHash(), merkleTree1.getRootHash());
     }
 
     @Test
     void test_hash_for_case_sensitive() {
         List<String> lowercase_data = data.stream().map(String::toLowerCase).toList();
         MerkleTree merkleTree1 = new MerkleTree(lowercase_data);
-        assertFalse(Arrays.equals(merkleTree.getRoot().getHash(), merkleTree1.getRoot().getHash()));
+        assertFalse(Arrays.equals(merkleTree.getRootHash(), merkleTree1.getRootHash()));
     }
 
     @Test
     void testRootHashAsExpected() {
         MerkleTree merkleTree1 = new MerkleTree(data);
-        assertEquals("cc7461bf32d59f9249796e6e7691f304a3221825732284b9c049b1dd2c689b56", HexFormat.of().formatHex(merkleTree1.getRoot().getHash()));
+        assertEquals("cc7461bf32d59f9249796e6e7691f304a3221825732284b9c049b1dd2c689b56", HexFormat.of().formatHex(merkleTree1.getRootHash()));
     }
 
     @Test
@@ -96,10 +96,10 @@ class MerkleTreeTest {
 
     @Test
     void update_single_leaf_with_new_value_not_found() {
-        byte[] rootHash = merkleTree.getRoot().getHash();
+        byte[] rootHash = merkleTree.getRootHash();
         MerkleNode leaf = new MerkleNode("a", HashUtil.hash_sha_256("a".getBytes(StandardCharsets.UTF_8)), -1);
         merkleTree.updateLeaves(List.of(leaf), executors);
-        assertArrayEquals(rootHash, merkleTree.getRoot().getHash());
+        assertArrayEquals(rootHash, merkleTree.getRootHash());
     }
 
     @Test
@@ -107,7 +107,7 @@ class MerkleTreeTest {
         MerkleNode leaf = merkleTree.findLeaf("C");
         leaf.setValue("F");
         merkleTree.updateLeaves(List.of(leaf), null);
-        assertEquals("2f48bc499259fcbdf8119716a116652f0ac5388a2a63b57478113c78fac8c576", HexFormat.of().formatHex(merkleTree.getRoot().getHash()));
+        assertEquals("2f48bc499259fcbdf8119716a116652f0ac5388a2a63b57478113c78fac8c576", HexFormat.of().formatHex(merkleTree.getRootHash()));
     }
 
 
@@ -123,7 +123,7 @@ class MerkleTreeTest {
 
         merkleTree.updateLeaves(List.of(leaf, leaf1), executors);
 
-        assertEquals("619c2cc9c54ad5efdab2306a12be2209e0ff0710c907dc275bdb6ddf55035daf",HexFormat.of().formatHex(merkleTree.getRoot().getHash()));
+        assertEquals("619c2cc9c54ad5efdab2306a12be2209e0ff0710c907dc275bdb6ddf55035daf", HexFormat.of().formatHex(merkleTree.getRootHash()));
     }
 
     @Test
@@ -140,8 +140,8 @@ class MerkleTreeTest {
         MerkleNode leaf2 = merkleTree.findLeaf(targetData2);
         leaf2.setValue("e");
 
-        merkleTree.updateLeaves(List.of(leaf,leaf1,leaf2),executors);
-        assertEquals("68812a5ef301d5712a0fc4fc923e194418eb17bcfa2cb54272b2be8df915f7d0",HexFormat.of().formatHex(merkleTree.getRoot().getHash()));
+        merkleTree.updateLeaves(List.of(leaf, leaf1, leaf2), executors);
+        assertEquals("68812a5ef301d5712a0fc4fc923e194418eb17bcfa2cb54272b2be8df915f7d0", HexFormat.of().formatHex(merkleTree.getRootHash()));
     }
 
 }
